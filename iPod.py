@@ -1,7 +1,8 @@
 """
 iPod for XBMC
 
-Author: Carles F. Julia
+Author: stafio
+Original Author: Carles F. Julia
 """
 
 import sys
@@ -10,7 +11,9 @@ import xbmc
 import xbmcplugin
 import xbmcgui
 
-BASE_RESOURCE_PATH = xbmc.translatePath( os.path.join( os.getcwd(), 'resources' ) )
+WORKING_DIR = os.path.dirname(os.path.realpath(__file__))
+BASE_RESOURCE_PATH = os.path.join(WORKING_DIR, 'resources')
+
 sys.path.append (os.path.join(BASE_RESOURCE_PATH,'lib'))
 
 import sys_utils
@@ -23,31 +26,41 @@ thisPluginUrl='plugin://plugin.audio.ipod/'
 
 ipodDB = os.path.join(BASE_RESOURCE_PATH,'data','ipodDB')
 
+addon_handle = int(sys.argv[1])
+
+xbmcplugin.setContent(addon_handle, 'audio')
+
 def copyInfo(mp):
     "Copy all info from iPod Database to a local file"
     import gpod
-    albums = dict()
+    artists = dict()
     i_itdb = gpod.itdb_parse(mp,None)
     for track in gpod.sw_get_tracks(i_itdb):
         album = track.album
+        artist = track.artist
         song = dict()
         song['file']=gpod.itdb_filename_on_ipod(track)
         song['title']=track.title
         song['track number']=track.track_nr
-        if album not in albums:
-            albums[album]=dict()
-            albums[album]['title']=album
-            albums[album]['songs']=list()
-        albums[album]['songs'].append(song)
+        if artist not in artists:
+            artists[artist]=dict()
+            artists[artist]['name']=artist
+            artists[artist]['albums']=dict()
+        if album not in artists[artist]['albums']:
+            artists[artist]['albums'][album]=dict()
+            artists[artist]['albums'][album]['title']=album
+            artists[artist]['albums'][album]['songs']=list()
+        artists[artist]['albums'][album]['songs'].append(song)
     pass
     d = shelve.open(ipodDB)
-    d[mp]=albums
+    d[mp]=artists
     d.close()
+
 
 def MyAddDirectoryItem(url,caption,isFolder=False):
     "Helper for xbmcplugin.addDirectoryItem()"
-    listItem = xbmcgui.ListItem(caption)
-    xbmcplugin.addDirectoryItem(thisPlugin,url,listItem,isFolder=isFolder)
+    li = xbmcgui.ListItem(caption)
+    xbmcplugin.addDirectoryItem(handle=addon_handle, url=url, listitem=li, isFolder=isFolder)
 
 def isUrl(name):
     def register(f):
@@ -69,74 +82,66 @@ def call_Url(u):
         url = ['']
     view = url[0]
     args = url[1:]
-    
+
     if not view or view not in urls_views:
         view = 'list_ipods'
         args = []
-    
+
     args = [base64.b64decode(a) for a in args if a]
-    
+
     f = urls_views[view]
     f(*args)
 
 def make_Url(f,*args):
-    #global urls_views_inverse
-    #try:
-    #    urls_views_inverse
-    #except:
     urls_views_inverse = dict((v,k) for k, v in urls_views.iteritems())
     base = urls_views_inverse[f]
     args = [base64.b64encode(a) for a in args if a]
     return thisPluginUrl+("/".join([base]+args))
 
-@isUrl('list_ipods')
-def firstLevel():
-    "List the founs iPods and copy all the info"
-    listipods = [m for m in sys_utils.get_mounts() if os.path.exists(os.path.join(m,'iPod_Control','iTunes','iTunesDB'))]
-    for m in listipods:
-        copyInfo(m)
-        MyAddDirectoryItem(make_Url(menuipod,m),m,isFolder=True)
-    xbmcplugin.endOfDirectory(thisPlugin)
-
 @isUrl('main_menu_ipod')
 def menuipod(m):
-    MyAddDirectoryItem(make_Url(ListAllAlbums,m),"All albums",isFolder=True)
-    MyAddDirectoryItem(make_Url(ListAllSongs,m),"All songs",isFolder=True)
+    MyAddDirectoryItem(make_Url(ListAllArtists,m),"All artists",isFolder=True)
+
+#queries: artists
+
+@isUrl('all_artists')
+def ListAllArtists(mp):
+    d = shelve.open(ipodDB)
+    artists = d[mp]
+    ViewListArtists(mp,sorted(artists))
+    d.close()
+
+def ViewListArtists(mp,artistList):
+    for a in artistList:
+        if a:
+            MyAddDirectoryItem(make_Url(ListAllAlbumsFromArtist,mp,a),a,isFolder=True)
     xbmcplugin.endOfDirectory(thisPlugin)
 
 #queries: albums
 
-@isUrl('all_albums')
-def ListAllAlbums(mp):
-    d = shelve.open(ipodDB)
-    albums = d[mp]
-    ViewListAlbums(mp,sorted(albums))
-    d.close()
-        
-
-def ViewListAlbums(mp,albumlist):
+def ViewListAlbums(mp,artist,albumlist):
     for a in albumlist:
         if a:
-            MyAddDirectoryItem(make_Url(ListAllSongsFromAlbum,mp,a),a,isFolder=True)
+            MyAddDirectoryItem(make_Url(ListAllSongsFromAlbum,mp,artist,a),a,isFolder=True)
     xbmcplugin.endOfDirectory(thisPlugin)
+
+
+@isUrl('albums_from_artist')
+def ListAllAlbumsFromArtist(mp,artist):
+    d = shelve.open(ipodDB)
+    artists = d[mp]
+    d.close()
+    ViewListAlbums(mp,artist,sorted(artists[artist]['albums']))
+
 
 #queries: songs
 
-@isUrl('all_songs')
-def ListAllSongs(mp):
-    d = shelve.open(ipodDB)
-    songs = []
-    for a in d[mp].itervalues():
-        songs = songs+a['songs']
-    ViewListSongs(songs)
-    d.close()
-
 @isUrl('songs_from_album')
-def ListAllSongsFromAlbum(mp,album):
+def ListAllSongsFromAlbum(mp,artist,album):
     d = shelve.open(ipodDB)
-    albums = d[mp]
+    artists = d[mp]
     d.close()
-    ViewListSongs(sorted(albums[album]['songs'],key=lambda s1: s1['track number']))
+    ViewListSongs(sorted(artists[artist]['albums'][album]['songs'],key=lambda s1: s1['track number']))
 
 
 def ViewListSongs(songs):
@@ -144,12 +149,19 @@ def ViewListSongs(songs):
         MyAddDirectoryItem(s['file'],s['title'])
     xbmcplugin.endOfDirectory(thisPlugin)
 
+@isUrl('list_ipods')
+def firstLevel():
+	ipodList = [m for m in sys_utils.get_mounts() if os.path.exists(os.path.join(m,'iPod_Control','iTunes','iTunesDB'))]
+	for m in ipodList:
+		copyInfo(m)
+		MyAddDirectoryItem(make_Url(menuipod,m),m,isFolder=True)
+
 def main(a1,a2):
     global thisPlugin
     thisPlugin = int(a2)
-    
+
     call_Url(a1)
 
-if __name__ == "__main__":
-    main(sys.argv[0],sys.argv[1])
+main(sys.argv[0],sys.argv[1])
 
+xbmcplugin.endOfDirectory(addon_handle)

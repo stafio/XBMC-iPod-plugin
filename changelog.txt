@@ -1,3 +1,6 @@
+Version 0.0.4 (2 Dec 2015)
+    * View changed to be limited to ipod->artists->albums->songs
+
 Version 0.0.3 (11 Sept 2011)
     * Internal refactoring to support more views
     * Now it can list all songs on the device
