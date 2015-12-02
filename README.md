@@ -7,9 +7,8 @@ A [XBMC](http://xbmc.org/) plugin to browse and play songs of your iPod (on Linu
 Features
 --------
 
-Currently, it basically lists your connected iPods, then your albums (no artwork atm) and finally the album songs that you can play.
+Currently, it basically lists your connected iPods, then artists, albums (no artwork atm), and finally the album songs that you can play.
 
-It crashes sometimes (on my machine, but I don't know why atm; wanna help me?)
 
 Installation
 ------------
@@ -20,7 +19,8 @@ You will need the libgpod library and python bindings (on ubuntu: apt-get instal
 
 Author
 -------
-Carles F. Julià (chaos.ct AT gmail com)
+stafio
+Forked from original addon by Carles F. Julià (chaos.ct AT gmail com)
 
 License
 -------
