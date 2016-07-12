@@ -5,7 +5,7 @@
         <provides>audio</provides>
     </extension>
     <extension point="xbmc.addon.metadata">
-        <summary>Plugin to browse and play songs of your iPod</summary>
+        <summary>Plugin to browse and play songs off your iPod</summary>
         <description>Currently, it basically lists your connected iPods, then your artists, albums, and finally the album songs that you can play.</description>
         <platform>linux</platform>
     </extension>
